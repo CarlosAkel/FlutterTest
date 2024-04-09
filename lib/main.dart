@@ -129,6 +129,8 @@ class _MyAppState extends State<MyApp> {
                                       MaterialPageRoute(
                                         builder: (context) => InfoScreen(
                                             data: snapshot.data![index].id,
+                                            title: snapshot.data![index].title
+                                                .toString(),
                                             description: snapshot
                                                 .data![index].description
                                                 .toString(),

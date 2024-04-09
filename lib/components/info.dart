@@ -9,15 +9,23 @@ class Chapters {
   final String id;
   final String? title;
   final String number;
+  final String language;
+  final String source;
 
-  Chapters({required this.id, required this.title, required this.number});
+  Chapters(
+      {required this.id,
+      required this.title,
+      required this.number,
+      required this.language,
+      required this.source});
 
   factory Chapters.fromJson(Map<String, dynamic> json) {
     return Chapters(
-      id: json['id'],
-      title: json['name'],
-      number: json['number'],
-    );
+        id: json['id'],
+        title: json['name'],
+        number: json['number'],
+        language: json['language'],
+        source: json["source"]);
   }
 }
 
@@ -44,10 +52,13 @@ Future<List<Chapters>> fetchItems(String mangaId) async {
         final Map<String, dynamic> attributes = data['attributes'];
         mangaList.add(
           Chapters(
-            id: data['id'].toString(),
-            title: attributes['title'],
-            number: attributes['chapter'] ?? "-1",
-          ),
+              id: data['id'].toString(),
+              title: attributes['title'],
+              number: attributes['chapter'] ?? "-1",
+              language: attributes['translatedLanguage'] ?? "unknown",
+              source: data['relationships'].firstWhere(
+                  (element) => element['type'] == 'user',
+                  orElse: () => null)?['id']),
         );
       }
 
@@ -64,11 +75,13 @@ class InfoScreen extends StatefulWidget {
   final String data;
   final String description;
   final String cover;
+  final String title;
 
   const InfoScreen({
     required this.data,
     required this.description,
     required this.cover,
+    required this.title,
   });
 
   @override
@@ -77,18 +90,33 @@ class InfoScreen extends StatefulWidget {
 
 class _InfoScreenState extends State<InfoScreen> {
   late Future<List<Chapters>> currentChapters;
+  String? selectedLanguage;
+  List<String> languages = ['en'];
 
   @override
   void initState() {
     super.initState();
     currentChapters = fetchItems(widget.data);
+    initializeLanguages();
+  }
+
+  // Initialize languages list
+  void initializeLanguages() async {
+    List<Chapters> chapters = await currentChapters;
+    Set<String> uniqueLanguages = {};
+    for (var chapter in chapters) {
+      uniqueLanguages.add(chapter.language);
+    }
+    setState(() {
+      languages = uniqueLanguages.toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Info'),
+        title: Text(widget.title),
       ),
       body: Column(
         children: [
@@ -109,6 +137,25 @@ class _InfoScreenState extends State<InfoScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+          ),
+          DropdownButtonFormField<String>(
+            value: selectedLanguage,
+            onChanged: (newValue) {
+              setState(() {
+                selectedLanguage = newValue;
+              });
+            },
+            items: [
+              const DropdownMenuItem(
+                value: null,
+                child: Text('Select Other Languages'),
+              ),
+              for (var language in languages)
+                DropdownMenuItem(
+                  value: language,
+                  child: Text(language),
+                ),
+            ],
           ),
           Expanded(
             child: Container(
@@ -133,7 +180,24 @@ class _InfoScreenState extends State<InfoScreen> {
                       child: Text('No data available.'),
                     );
                   } else {
-                    snapshot.data!.sort((a, b) {
+                    // Extract unique languages from fetched data
+                    Set<String> uniqueLanguages = {};
+                    for (var chapter in snapshot.data!) {
+                      uniqueLanguages.add(chapter.language);
+                    }
+                    languages = uniqueLanguages.toList();
+
+                    // Filter chapters by selected language
+                    List<Chapters> filteredChapters = snapshot.data!;
+                    if (selectedLanguage != null) {
+                      filteredChapters = filteredChapters
+                          .where(
+                              (chapter) => chapter.language == selectedLanguage)
+                          .toList();
+                    }
+
+                    // Sort and display filtered chapters
+                    filteredChapters.sort((a, b) {
                       double aNumber = double.tryParse(a.number ?? '') ?? -1;
                       double bNumber = double.tryParse(b.number ?? '') ?? -1;
 
@@ -145,7 +209,7 @@ class _InfoScreenState extends State<InfoScreen> {
                     });
 
                     return ListView.builder(
-                      itemCount: snapshot.data!.length,
+                      itemCount: filteredChapters.length,
                       itemBuilder: (context, index) {
                         return ListTile(
                           title: Column(
@@ -157,17 +221,21 @@ class _InfoScreenState extends State<InfoScreen> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => ChapterScreen(
-                                        chapterNumber: snapshot
-                                            .data![index].number
-                                            .toString(),
-                                        chapterId:
-                                            snapshot.data![index].id.toString(),
-                                      ),
+                                          chapterNumber: filteredChapters[index]
+                                              .number
+                                              .toString(),
+                                          chapterId: filteredChapters[index]
+                                              .id
+                                              .toString(),
+                                          mangaId: widget.data.toString(),
+                                          source: filteredChapters[index]
+                                              .source
+                                              .toString()),
                                     ),
                                   );
                                 },
                                 child: Text(
-                                    'Chapter: ${snapshot.data![index].number}'),
+                                    'Chapter: ${filteredChapters[index].number} Language: ${filteredChapters[index].language}'),
                               )
                             ],
                           ),

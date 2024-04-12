@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:hidable/hidable.dart';
 
 class Pages {
   final String hash;
@@ -59,8 +60,15 @@ class ChapterScreen extends StatefulWidget {
 
 class _ChapterScreenState extends State<ChapterScreen> {
   late Future<Pages> currentPages;
+  final ScrollController _scrollController = ScrollController();
   String newChapterNumber = '';
   String newChapterId = '';
+
+  @override
+  void dispose() {
+    super.dispose();
+    _scrollController.dispose();
+  }
 
   @override
   void initState() {
@@ -87,27 +95,27 @@ class _ChapterScreenState extends State<ChapterScreen> {
       List<Map<String, dynamic>> names = dataList.toList();
 
       if (next) {
-        names.sort((a, b) => int.parse(a["attributes"]['chapter'])
-            .compareTo(int.parse(b["attributes"]['chapter'])));
+        names.sort((a, b) => double.parse(a["attributes"]['chapter'])
+            .compareTo(double.parse(b["attributes"]['chapter'])));
         var result = names.where((element) =>
             (element['relationships'] as List<dynamic>).any((subElement) =>
                 subElement['type'] == 'user' &&
                 subElement['id'] == widget.source));
         value = result.firstWhere((element) {
-          return int.parse(element["attributes"]["chapter"]) >
-              int.parse(chapterNumber);
+          return double.parse(element["attributes"]["chapter"]) >
+              double.parse(chapterNumber);
         });
       } else {
-        names.sort((a, b) => int.parse(b["attributes"]['chapter'])
-            .compareTo(int.parse(a["attributes"]['chapter'])));
+        names.sort((a, b) => double.parse(b["attributes"]['chapter'])
+            .compareTo(double.parse(a["attributes"]['chapter'])));
 
         var result = names.where((element) =>
             (element['relationships'] as List<dynamic>).any((subElement) =>
                 subElement['type'] == 'user' &&
                 subElement['id'] == widget.source));
         value = result.firstWhere((element) {
-          return int.parse(element["attributes"]["chapter"]) <
-              int.parse(chapterNumber);
+          return double.parse(element["attributes"]["chapter"]) <
+              double.parse(chapterNumber);
         });
       }
     } else {
@@ -123,7 +131,32 @@ class _ChapterScreenState extends State<ChapterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Chapter $newChapterNumber'),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Text('Chapter $newChapterNumber'),
+              IconButton(
+                icon: Icon(
+                  Icons.arrow_left,
+                  color: Colors.black,
+                  size: 50.0,
+                ),
+                onPressed: () {
+                  _loadChapter(context, newChapterNumber, false);
+                },
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.arrow_right,
+                  color: Colors.black,
+                  size: 50.0,
+                ),
+                onPressed: () {
+                  _loadChapter(context, newChapterNumber, true);
+                },
+              ),
+            ],
+          ),
         ),
         body: Column(children: [
           FutureBuilder<Pages>(
@@ -148,23 +181,6 @@ class _ChapterScreenState extends State<ChapterScreen> {
                         pages: snapshot.data!.data, hash: snapshot.data!.hash));
               }
             },
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  _loadChapter(context, newChapterNumber, false);
-                },
-                child: Text('Previous Chapter'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  _loadChapter(context, newChapterNumber, true);
-                },
-                child: Text('Next Chapter'),
-              ),
-            ],
           ),
         ]));
   }

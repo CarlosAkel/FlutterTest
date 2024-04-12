@@ -3,8 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 
 class Pages {
   final String hash;
@@ -39,13 +37,13 @@ Future<Pages> fetchItems(String chapterId) async {
   }
 }
 
-class ChapterScreen extends StatefulWidget {
+class ChapterScreenFull extends StatefulWidget {
   final String chapterNumber;
   final String chapterId;
   final String mangaId;
   final String source;
 
-  const ChapterScreen({
+  const ChapterScreenFull({
     Key? key,
     required this.chapterNumber,
     required this.chapterId,
@@ -54,10 +52,10 @@ class ChapterScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ChapterScreen> createState() => _ChapterScreenState();
+  State<ChapterScreenFull> createState() => _ChapterScreenState();
 }
 
-class _ChapterScreenState extends State<ChapterScreen> {
+class _ChapterScreenState extends State<ChapterScreenFull> {
   late Future<Pages> currentPages;
   String newChapterNumber = '';
   String newChapterId = '';
@@ -84,11 +82,14 @@ class _ChapterScreenState extends State<ChapterScreen> {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
       List<Map<String, dynamic>> dataList =
           (jsonResponse['data'] as List).cast<Map<String, dynamic>>();
-      List<Map<String, dynamic>> names = dataList.toList();
+      List<Map<String, dynamic>> names = dataList
+          .where((map) => map['attributes']["translatedLanguage"] == 'en')
+          .toList();
 
       if (next) {
-        names.sort((a, b) => int.parse(a["attributes"]['chapter'])
-            .compareTo(int.parse(b["attributes"]['chapter'])));
+        names.sort((a, b) =>
+            a["attributes"]['chapter'].compareTo(b["attributes"]['chapter']));
+
         var result = names.where((element) =>
             (element['relationships'] as List<dynamic>).any((subElement) =>
                 subElement['type'] == 'user' &&
@@ -98,8 +99,8 @@ class _ChapterScreenState extends State<ChapterScreen> {
               int.parse(chapterNumber);
         });
       } else {
-        names.sort((a, b) => int.parse(b["attributes"]['chapter'])
-            .compareTo(int.parse(a["attributes"]['chapter'])));
+        names.sort((a, b) =>
+            b["attributes"]['chapter'].compareTo(a["attributes"]['chapter']));
 
         var result = names.where((element) =>
             (element['relationships'] as List<dynamic>).any((subElement) =>
@@ -122,51 +123,36 @@ class _ChapterScreenState extends State<ChapterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text('Chapter $newChapterNumber'),
-        ),
-        body: Column(children: [
-          FutureBuilder<Pages>(
-            future: currentPages,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              } else if (snapshot.hasError) {
-                print('Error fetching data: ${snapshot.error}');
-                return Center(
-                  child: Text('Error: ${snapshot.error}'),
-                );
-              } else if (!snapshot.hasData || snapshot.data!.data.isEmpty) {
-                return const Center(
-                  child: Text('No data available.'),
-                );
-              } else {
-                return Expanded(
-                    child: PageViewer(
-                        pages: snapshot.data!.data, hash: snapshot.data!.hash));
-              }
-            },
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  _loadChapter(context, newChapterNumber, false);
-                },
-                child: Text('Previous Chapter'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  _loadChapter(context, newChapterNumber, true);
-                },
-                child: Text('Next Chapter'),
-              ),
-            ],
-          ),
-        ]));
+      appBar: AppBar(
+        title: Text('Chapter $newChapterNumber'),
+      ),
+      body: FutureBuilder<Pages>(
+        future: currentPages,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          } else if (snapshot.hasError) {
+            print('Error fetching data: ${snapshot.error}');
+            return Center(
+              child: Text('Error: ${snapshot.error}'),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.data.isEmpty) {
+            return const Center(
+              child: Text('No data available.'),
+            );
+          } else {
+            return InteractiveViewer(
+                alignment: Alignment.center,
+                maxScale: 10,
+                boundaryMargin: const EdgeInsets.all(double.infinity),
+                child: PageViewer(
+                    pages: snapshot.data!.data, hash: snapshot.data!.hash));
+          }
+        },
+      ),
+    );
   }
 }
 
@@ -192,36 +178,22 @@ class _PageViewerState extends State<PageViewer> {
         .map((page) => 'https://uploads.mangadex.org/data/${widget.hash}/$page')
         .toList();
     imageUrls.forEach((url) => precacheImage(NetworkImage(url), context));
-    return PhotoViewGallery.builder(
-      itemCount: widget.pages.length,
-      scrollDirection: Axis.vertical,
-      builder: (context, index) {
-        final imageProvider = NetworkImage(imageUrls[index]);
-        return PhotoViewGalleryPageOptions(
-          imageProvider: imageProvider,
-          minScale: PhotoViewComputedScale.contained,
-          maxScale: PhotoViewComputedScale.covered * 2,
-          basePosition: Alignment.center,
-          // Set the initial scale based on screen width and desired image width
-          initialScale: PhotoViewComputedScale.contained,
-          heroAttributes: PhotoViewHeroAttributes(tag: imageUrls[index]),
+    return GridView.builder(
+      key: const PageStorageKey('grid-key'),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 1,
+        mainAxisSpacing: 0,
+        crossAxisSpacing: 0,
+      ),
+      itemCount: imageUrls.length,
+      itemBuilder: (context, index) {
+        final imagePath = imageUrls[index];
+        final image = Image.network(
+          imagePath,
+          fit: BoxFit.contain,
         );
+        return image;
       },
-      loadingBuilder: (context, event) {
-        num totalBytes = event?.expectedTotalBytes ?? 0;
-        return Center(
-          child: Container(
-            width: 20.0,
-            height: 20.0,
-            child: CircularProgressIndicator(
-              value:
-                  event == null ? 0 : event.cumulativeBytesLoaded / totalBytes,
-            ),
-          ),
-        );
-      },
-      backgroundDecoration: BoxDecoration(color: Colors.black),
-      pageController: PageController(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'chapter_set_2.dart';
 import 'chapter.dart';
 
 class Chapters {
@@ -29,7 +30,7 @@ class Chapters {
   }
 }
 
-Future<List<Chapters>> fetchItems(String mangaId) async {
+Future<List<Chapters>> fetchItems(String mangaId, String language) async {
   final List<Chapters> mangaList = [];
 
   int offset = 0;
@@ -38,7 +39,7 @@ Future<List<Chapters>> fetchItems(String mangaId) async {
 
   do {
     final response = await http.get(Uri.parse(
-        'https://api.mangadex.org/manga/$mangaId/feed?limit=$limit&offset=$offset'));
+        'https://api.mangadex.org/manga/$mangaId/feed?translatedLanguage[]=$language'));
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
@@ -91,17 +92,16 @@ class InfoScreen extends StatefulWidget {
 class _InfoScreenState extends State<InfoScreen> {
   late Future<List<Chapters>> currentChapters;
   String? selectedLanguage;
-  List<String> languages = ['en'];
+  List<String> languages = ["en"];
 
   @override
   void initState() {
     super.initState();
-    currentChapters = fetchItems(widget.data);
-    initializeLanguages();
+    currentChapters = fetchItems(widget.data, languages[0]);
   }
 
   // Initialize languages list
-  void initializeLanguages() async {
+  Future<List<String>> initializeLanguages() async {
     List<Chapters> chapters = await currentChapters;
     Set<String> uniqueLanguages = {};
     for (var chapter in chapters) {
@@ -110,6 +110,8 @@ class _InfoScreenState extends State<InfoScreen> {
     setState(() {
       languages = uniqueLanguages.toList();
     });
+
+    return languages;
   }
 
   @override
@@ -137,25 +139,6 @@ class _InfoScreenState extends State<InfoScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-          DropdownButtonFormField<String>(
-            value: selectedLanguage,
-            onChanged: (newValue) {
-              setState(() {
-                selectedLanguage = newValue;
-              });
-            },
-            items: [
-              const DropdownMenuItem(
-                value: null,
-                child: Text('Select Other Languages'),
-              ),
-              for (var language in languages)
-                DropdownMenuItem(
-                  value: language,
-                  child: Text(language),
-                ),
-            ],
           ),
           Expanded(
             child: Container(
@@ -235,7 +218,7 @@ class _InfoScreenState extends State<InfoScreen> {
                                   );
                                 },
                                 child: Text(
-                                    'Chapter: ${filteredChapters[index].number} Language: ${filteredChapters[index].language}'),
+                                    'Chapter: ${filteredChapters[index].number}'),
                               )
                             ],
                           ),

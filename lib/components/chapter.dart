@@ -86,7 +86,7 @@ class _ChapterScreenState extends State<ChapterScreen> {
     int totalChapters = 0;
     Map<String, dynamic> value;
     final response = await http.get(Uri.parse(
-        'https://api.mangadex.org/manga/${widget.mangaId}/feed?limit=$limit&offset=$offset'));
+        'https://api.mangadex.org/manga/${widget.mangaId}/feed?limit=$limit&offset=$offset&translatedLanguage[]=en'));
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
@@ -97,10 +97,8 @@ class _ChapterScreenState extends State<ChapterScreen> {
       if (next) {
         names.sort((a, b) => double.parse(a["attributes"]['chapter'])
             .compareTo(double.parse(b["attributes"]['chapter'])));
-        var result = names.where((element) =>
-            (element['relationships'] as List<dynamic>).any((subElement) =>
-                subElement['type'] == 'user' &&
-                subElement['id'] == widget.source));
+        var result = names;
+        print("RESULT ${result}");
         value = result.firstWhere((element) {
           return double.parse(element["attributes"]["chapter"]) >
               double.parse(chapterNumber);
@@ -109,10 +107,7 @@ class _ChapterScreenState extends State<ChapterScreen> {
         names.sort((a, b) => double.parse(b["attributes"]['chapter'])
             .compareTo(double.parse(a["attributes"]['chapter'])));
 
-        var result = names.where((element) =>
-            (element['relationships'] as List<dynamic>).any((subElement) =>
-                subElement['type'] == 'user' &&
-                subElement['id'] == widget.source));
+        var result = names;
         value = result.firstWhere((element) {
           return double.parse(element["attributes"]["chapter"]) <
               double.parse(chapterNumber);

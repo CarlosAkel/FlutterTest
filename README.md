@@ -11,3 +11,6 @@ Welcome to SimpleMangaApp! This application leverages the robust API provided by
 ## Video
 
 You can watch a demo of SimpleMangaApp [here](https://youtu.be/vQgnjTrz9dU?feature=shared).
+
+## APK
+Here also you can download the [apk](https://drive.google.com/file/d/1IgyBI0lkTY7NmCNMffINorfwK9lOe0a8/view?usp=drive_link).
